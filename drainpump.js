@@ -36,9 +36,9 @@ function switchOn() {
     Shelly.call("Switch.Set", { id: 0, on: true });
 
     // Start the timer
-    tmr = Timer.set(current_timer * 1000, false, function() {
+    tmr = Timer.set(current_timer * 1000, false, function () {
         // Check power consumption
-        Shelly.call("Switch.GetStatus", { id: 0 }, function(result) {
+        Shelly.call("Switch.GetStatus", { id: 0 }, function (result) {
             let power = result.aenergy.power;
             if (power < config.power_threshold) {
                 // Turn off the switch
@@ -58,7 +58,7 @@ function switchOff() {
 }
 
 // Event handler for switch status change
-Shelly.addEventHandler(function(event, user_data) {
+Shelly.addEventHandler(function (event, user_data) {
     if (event.component == "switch0") {
         if (event.info.state) {
             // Switch turned on
