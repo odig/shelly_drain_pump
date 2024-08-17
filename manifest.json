@@ -1,58 +1,70 @@
-{
-    "name": "Shelly Drain Pump",
-    "version": "1.0.0",
-    "description": "A script to control a Shelly device with adjustable timers based on power consumption.",
-    "authors": [
-        {
-            "name": "Gido Kuechler",
-            "email": "gido@ukuechler.de"
-        }
-    ],
-    "scripts": {
-        "drainpump.js": {
-            "run_on_boot": true
-        }
-    },
-    "config": {
-        "power_threshold": {
-            "type": "number",
-            "description": "Power threshold in watts.",
-            "default": 5.0
+[
+    {
+        "name": "Shelly Drain Pump",
+        "version": "0.9.1",
+        "description": "A script to control a Shelly device with adjustable timers based on power consumption.",
+        "authors": [
+            {
+                "name": "Gido Kuechler",
+                "email": "gido@ukuechler.de"
+            }
+        ],
+        "scripts": {
+            "drainpump.js": {
+                "run_on_boot": true
+            }
         },
-        "max_timer": {
-            "type": "number",
-            "description": "Maximum timer duration in seconds.",
-            "default": 300
-        },
-        "min_timer": {
-            "type": "number",
-            "description": "Minimum timer duration in seconds.",
-            "default": 10
-        },
-        "initial_timer": {
-            "type": "number",
-            "description": "Initial timer duration in seconds.",
-            "default": 30
-        },
-        "increase_threshold": {
-            "type": "number",
-            "description": "Last run time threshold for increasing the timer in seconds.",
-            "default": 15
-        },
-        "decrease_threshold": {
-            "type": "number",
-            "description": "Last run time threshold for decreasing the timer in seconds.",
-            "default": 20
-        },
-        "timer_increase_step": {
-            "type": "number",
-            "description": "Amount to increase the timer by in seconds.",
-            "default": 10
-        },
-        "timer_decrease_step": {
-            "type": "number",
-            "description": "Amount to decrease the timer by in seconds.",
-            "default": 5
+        "config": {
+            "power_threshold": {
+                "type": "number",
+                "description": "Power threshold in watts.",
+                "default": 5.0
+            },
+            "max_intervall_timer": {
+                "type": "number",
+                "description": "Maximum timer duration in seconds.",
+                "default": 300
+            },
+            "min_intervall_timer": {
+                "type": "number",
+                "description": "Minimum timer duration in seconds.",
+                "default": 10
+            },
+            "initial_intervall_timer": {
+                "type": "number",
+                "description": "Initial timer duration in seconds.",
+                "default": 30
+            },
+            "increase_threshold": {
+                "type": "number",
+                "description": "Last run time threshold for increasing the timer in seconds.",
+                "default": 15
+            },
+            "decrease_threshold": {
+                "type": "number",
+                "description": "Last run time threshold for decreasing the timer in seconds.",
+                "default": 20
+            },
+            "timer_increase_step": {
+                "type": "number",
+                "description": "Amount to increase the timer by in seconds.",
+                "default": 10
+            },
+            "timer_decrease_step": {
+                "type": "number",
+                "description": "Amount to decrease the timer by in seconds.",
+                "default": 5
+            },
+            "max_pump_run_time": {
+                "type": "number",
+                "description": "Maximum pump run time in seconds.",
+                "default": 5
+            },
+            "pump_runup_time": {
+                "type": "number",
+                "description": "Time to wait for pump to start in seconds.",
+                "default": 5
+            }            
         }
     }
-}
+]

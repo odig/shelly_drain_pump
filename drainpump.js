@@ -4,68 +4,157 @@
 // The timer has a configurable maximmum. 
 // The timer schould be increased if the last run was under 15 seconds and decresed if the last run was over 20 seconds.
 
-// Load or set default configuration parameters
-let config = {
-    power_threshold: Shelly.getComponentConfig("relay0", "power_threshold") || 5.0,           // Power threshold in watts
-    max_timer: Shelly.getComponentConfig("relay0", "max_timer") || 300,                       // Maximum timer duration in seconds
-    min_timer: Shelly.getComponentConfig("relay0", "min_timer") || 10,                        // Minimum timer duration in seconds
-    initial_timer: Shelly.getComponentConfig("relay0", "initial_timer") || 30,                // Initial timer duration in seconds
-    increase_threshold: Shelly.getComponentConfig("relay0", "increase_threshold") || 15,      // Last run time threshold for increasing the timer
-    decrease_threshold: Shelly.getComponentConfig("relay0", "decrease_threshold") || 20,      // Last run time threshold for decreasing the timer
-    timer_increase_step: Shelly.getComponentConfig("relay0", "timer_increase_step") || 10,    // Amount to increase the timer by
-    timer_decrease_step: Shelly.getComponentConfig("relay0", "timer_decrease_step") || 5      // Amount to decrease the timer by
+// Load default configuration parameter
+function getComponentConfig(parameter) {
+    configObject = Shelly.getComponentConfig(parameter)
+    if (configObject == null) {
+        return null;
+    }
+
+    return configObject[parameter];
+}
+
+let CONFIG = {
+    power_threshold: getComponentConfig("power_threshold") || 5.0,                     // Power threshold in watts
+    max_intervall_timer: getComponentConfig("max_intervall_timer") || 300,             // Maximum timer duration in seconds
+    min_intervall_timer: getComponentConfig("min_intervall_timer") || 10,              // Minimum timer duration in seconds
+    initial_intervall_timer: getComponentConfig("initial_intervall_timer") || 30,      // Initial timer duration in seconds
+    increase_threshold: getComponentConfig("increase_threshold") || 15,                // Last run time threshold for increasing the timer
+    decrease_threshold: getComponentConfig("decrease_threshold") || 20,                // Last run time threshold for decreasing the timer
+    timer_increase_step: getComponentConfig("timer_increase_step") || 10,              // Amount to increase the timer by
+    timer_decrease_step: getComponentConfig("timer_decrease_step") || 5,               // Amount to decrease the timer by
+    max_pump_run_time: getComponentConfig("max_pump_run_time") || 60,                  // Maximum pump run time in seconds
+    pump_runup_time: getComponentConfig("pump_runup_time") || 5                        // Time to wait for pump to start in seconds
 };
 
 // Variables to store state
-let last_run_time = 0;
-let current_timer = config.initial_timer;
-let tmr = null;  // Timer handle
+let last_run_duration = 0;
+let current_timer = CONFIG.initial_intervall_timer;
+let intervall_timer = null;  // Timer handle
+let power_watch_timer = null;  // Timer handle
+let tmr_start_time = Date.now();
 
 // Function to adjust the timer
-function adjustTimer(last_run_time) {
-    if (last_run_time < config.increase_threshold) {
-        current_timer = Math.min(config.max_timer, current_timer + config.timer_increase_step);
-    } else if (last_run_time > config.decrease_threshold) {
-        current_timer = Math.max(config.min_timer, current_timer - config.timer_decrease_step);
+function adjustTimer(last_run_duration) {
+    print("last_run_duration=", last_run_duration);
+
+    // check for max run time reached and adjust timer to minimum
+    if (last_run_duration > CONFIG.max_pump_run_time) {
+        current_timer = CONFIG.min_intervall_timer;
+    } else  if (last_run_duration < CONFIG.increase_threshold) {
+        current_timer = Math.min(CONFIG.max_intervall_timer, current_timer + CONFIG.timer_increase_step);
+    } else if (last_run_duration > CONFIG.decrease_threshold) {
+        current_timer = Math.max(CONFIG.min_intervall_timer, current_timer - CONFIG.timer_decrease_step);
     }
+
+    print("current_timer=", current_timer);
+}
+
+
+// Function to check power consumption
+function checkPower() {
+    Shelly.call("Switch.GetStatus", { id: 0 }, function (result) {
+        let run_duration =  Math.floor((Date.now() - tmr_start_time)/1000);
+        let power = result.apower;
+        print("run_duration=", run_duration, ":", "power=", power );
+        
+        // If the power is below the threshold or the timer has run out, turn off the switch
+        // The timer has a minimum of CONFIG.pump_runup_time seconds to give pump time to start
+        // The timer has a maximum of CONFIG.max_pump_run_time seconds to prevent pump from running too long
+        if (run_duration>CONFIG.pump_runup_time && (power < CONFIG.power_threshold || run_duration > CONFIG.max_pump_run_time) ) {
+            // Stop the power watch timer
+            Timer.clear(power_watch_timer);
+            power_watch_timer = null;
+
+            // Turn off the switch            
+            Shelly.call("Switch.Set", { id: 0, on: false });
+        }
+    });
 }
 
 // Function to handle switch turning on
 function switchOn() {
+    // Stop timer
+    print("interval_timer=", intervall_timer);
+    if (intervall_timer != null) {
+        Timer.clear(intervall_timer);
+        intervall_timer = null;
+    }
+
     // Turn on the switch
+    print("on")
     Shelly.call("Switch.Set", { id: 0, on: true });
 
-    // Start the timer
-    tmr = Timer.set(current_timer * 1000, false, function () {
-        // Check power consumption
-        Shelly.call("Switch.GetStatus", { id: 0 }, function (result) {
-            let power = result.aenergy.power;
-            if (power < config.power_threshold) {
-                // Turn off the switch
-                Shelly.call("Switch.Set", { id: 0, on: false });
-            }
-        });
-    });
+    // Check power consumption
+    power_watch_timer = Timer.set(1000, true, checkPower);
 }
 
 // Function to handle switch turning off and record the run time
 function switchOff() {
+    print("off")
+
+    if (intervall_timer != null) {
+        Timer.clear(intervall_timer);
+        intervall_timer = null;
+    }
+
     // Record the last run time
-    last_run_time = Timer.now() - tmr_start_time;
+    let last_run_duration = Math.floor((Date.now() - tmr_start_time)/1000);
 
     // Adjust the timer based on the last run time
-    adjustTimer(last_run_time);
+    adjustTimer(last_run_duration);
+
+    // Start the timer
+    intervall_timer = Timer.set(current_timer * 1000, false, switchOn);
 }
+
+// Function to handle switch turning on and record the start time
+function switchTurnedOn() {
+    tmr_start_time = Date.now();
+}
+
+
+// Function to handle switch turning off and record the run time
+function switchTurnedOff() {
+    print("off")
+
+    if (intervall_timer != null) {
+        Timer.clear(intervall_timer);
+        intervall_timer = null;
+    }
+
+    // Record the last run time
+    let last_run_duration = Math.floor((Date.now() - tmr_start_time)/1000);
+
+    // Adjust the timer based on the last run time
+    adjustTimer(last_run_duration);
+
+    // Start the timer
+    intervall_timer = Timer.set(current_timer * 1000, false, switchOn);
+}
+
+//
+// Setup
+//
 
 // Event handler for switch status change
 Shelly.addEventHandler(function (event, user_data) {
-    if (event.component == "switch0") {
-        if (event.info.state) {
-            // Switch turned on
-            tmr_start_time = Timer.now();
-        } else {
-            // Switch turned off
-            switchOff();
+    if (event.component == "switch:0") {
+        //print("event=", event);
+        switch (event.info.event) {
+            case "toggle":
+                print("switch:0=", event.info.state);
+                if (event.info.state) {
+                    // Switch turned on
+                    switchTurnedOn();
+                } else {
+                    // Switch turned off
+                    switchTurnedOff();
+                }
+                break;
+            case "power_update":
+                checkPower();
+                break;
         }
     }
 }, null);
