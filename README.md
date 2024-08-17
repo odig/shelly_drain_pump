@@ -22,13 +22,15 @@ This script allows you to control a Shelly device with an adjustable timer based
 The following parameters are configurable:
 
 - `power_threshold`: Power threshold in watts.
-- `max_timer`: Maximum timer duration in seconds.
-- `min_timer`: Minimum timer duration in seconds.
-- `initial_timer`: Initial timer duration in seconds.
+- `max_intervall_timer`: Maximum timer duration in seconds.
+- `min_intervall_timer`: Minimum timer duration in seconds.
+- `initial_intervall_timer`: Initial timer duration in seconds.
 - `increase_threshold`: Last run time threshold for increasing the timer in seconds.
 - `decrease_threshold`: Last run time threshold for decreasing the timer in seconds.
 - `timer_increase_step`: Amount to increase the timer by in seconds.
 - `timer_decrease_step`: Amount to decrease the timer by in seconds.
+- `max_pump_run_time`: Maximum pump run time in seconds
+- `pump_runup_time`: Time to wait for pump to start in seconds
 
 ## Usage
 
