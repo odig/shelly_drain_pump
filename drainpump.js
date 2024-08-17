@@ -28,30 +28,74 @@ let CONFIG = {
 };
 
 // Variables to store state
-let last_run_duration = 0;
-let current_timer = CONFIG.initial_intervall_timer;
-let intervall_timer = null;  // Timer handle
-let power_watch_timer = null;  // Timer handle
-let tmr_start_time = Date.now();
+let STATE = {
+    current_timer: CONFIG.initial_intervall_timer,
+    intervall_timer: null,  // Timer handle
+    power_watch_timer: null,  // Timer handle
+    tmr_start_time: Date.now()
+};
+
+// Function to get the run duration
+function getRunDuration() {
+    return Math.floor((Date.now() - STATE.tmr_start_time) / 1000);
+}
+
+// Function to handle switch turning on
+function switchOn() {
+    // Turn on the switch
+    Shelly.call("Switch.Set", { id: 0, on: true });
+}
+
+// Function to handle switch turning off and record the run time
+function switchOff() {
+    // Turn off the switch
+    Shelly.call("Switch.Set", { id: 0, on: false });
+}
+
+// Function to start the power watch timer
+function startPowerWatchTimer() {
+    STATE.power_watch_timer = Timer.set(1000, true, checkPower);
+}
+
+// Function to stop the power watch timer
+function stopPowerWatchTimer() {
+    if (STATE.power_watch_timer != null) {
+        Timer.clear(STATE.power_watch_timer);
+        STATE.power_watch_timer = null;
+    }
+}
+
+// Function to start the interval timer
+function startIntervalTimer() {
+    STATE.intervall_timer = Timer.set(STATE.current_timer * 1000, false, switchOn);
+}
+
+// Function to stop the interval timer
+function stopIntervalTimer() {
+    if (STATE.intervall_timer != null) {
+        Timer.clear(STATE.intervall_timer);
+        STATE.intervall_timer = null;
+    }
+}
 
 // Function to adjust the timer
 function adjustTimer(last_run_duration) {
     print("last_run_duration =", last_run_duration+"s");
 
-    let new_timer = current_timer;
+    let new_timer = STATE.current_timer;
 
     // check for max run time reached and adjust timer to minimum
     if (last_run_duration > CONFIG.max_pump_run_time) {
         new_timer = CONFIG.initial_intervall_timer;
     } else  if (last_run_duration < CONFIG.increase_threshold) {
-        new_timer = Math.min(CONFIG.max_intervall_timer, current_timer + CONFIG.timer_increase_step);
+        new_timer = Math.min(CONFIG.max_intervall_timer, STATE.current_timer + CONFIG.timer_increase_step);
     } else if (last_run_duration > CONFIG.decrease_threshold) {
-        new_timer = Math.max(CONFIG.min_intervall_timer, current_timer - CONFIG.timer_decrease_step);
+        new_timer = Math.max(CONFIG.min_intervall_timer, STATE.current_timer - CONFIG.timer_decrease_step);
     }
 
-    if (new_timer != current_timer) {
-        current_timer = new_timer;
-        print("new current_timer =", current_timer+"s");
+    if (new_timer != STATE.current_timer) {
+        STATE.current_timer = new_timer;
+        print("new current_timer =", STATE.current_timer+"s");
     }
 }
 
@@ -59,7 +103,7 @@ function adjustTimer(last_run_duration) {
 // Function to check power consumption
 function checkPower() {
     Shelly.call("Switch.GetStatus", { id: 0 }, function (result) {
-        let run_duration =  Math.floor((Date.now() - tmr_start_time)/1000);
+        let run_duration =  getRunDuration();
         let power = result.apower;
         print("run_duration =", run_duration+"s", ";", "power =", power+"W" );
         
@@ -67,52 +111,24 @@ function checkPower() {
         // The timer has a minimum of CONFIG.pump_runup_time seconds to give pump time to start
         // The timer has a maximum of CONFIG.max_pump_run_time seconds to prevent pump from running too long
         if (run_duration>CONFIG.pump_runup_time && (power < CONFIG.power_threshold || run_duration > CONFIG.max_pump_run_time) ) {
-            // Stop the power watch timer
-            Timer.clear(power_watch_timer);
-            power_watch_timer = null;
-
             // Turn off the switch            
-            Shelly.call("Switch.Set", { id: 0, on: false });
+           switchOff();
         }
     });
-}
-
-// Function to handle switch turning on
-function switchOn() {
-    // Stop timer
-    if (intervall_timer != null) {
-        Timer.clear(intervall_timer);
-        intervall_timer = null;
-    }
-
-    // Turn on the switch
-    Shelly.call("Switch.Set", { id: 0, on: true });
-
-    // Check power consumption
-    power_watch_timer = Timer.set(1000, true, checkPower);
-}
-
-// Function to handle switch turning off and record the run time
-function switchOff() {
-    if (intervall_timer != null) {
-        Timer.clear(intervall_timer);
-        intervall_timer = null;
-    }
-
-    // Record the last run time
-    let last_run_duration = Math.floor((Date.now() - tmr_start_time)/1000);
-
-    // Adjust the timer based on the last run time
-    adjustTimer(last_run_duration);
-
-    // Start the timer
-    intervall_timer = Timer.set(current_timer * 1000, false, switchOn);
 }
 
 // Function to handle switch turning on and record the start time
 function switchTurnedOn() {
     print("on")
-    tmr_start_time = Date.now();
+
+    // Stop intervall timer
+    stopIntervalTimer();
+
+    // Record the start time
+    STATE.tmr_start_time = Date.now();
+
+    // Check power consumption
+    startPowerWatchTimer();
 }
 
 
@@ -120,19 +136,17 @@ function switchTurnedOn() {
 function switchTurnedOff() {
     print("off")
 
-    if (intervall_timer != null) {
-        Timer.clear(intervall_timer);
-        intervall_timer = null;
-    }
+    // Stop the power watch timer
+    stopPowerWatchTimer();
 
     // Record the last run time
-    let last_run_duration = Math.floor((Date.now() - tmr_start_time)/1000);
+    let last_run_duration = getRunDuration();
 
     // Adjust the timer based on the last run time
     adjustTimer(last_run_duration);
 
     // Start the timer
-    intervall_timer = Timer.set(current_timer * 1000, false, switchOn);
+    startIntervalTimer();
 }
 
 //
