@@ -14,7 +14,7 @@ This script allows you to control a Shelly device with an adjustable timer based
 ## Installation
 
 1. Clone the repository.
-2. Upload `timer_control.js` and `manifest.json` to your Shelly device.
+2. Upload `drainpump.js` and `manifest.json` to your Shelly device.
 3. Configure the script parameters using the Shelly web interface or via the API.
 
 ## Configuration
