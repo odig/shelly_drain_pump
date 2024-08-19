@@ -5,26 +5,17 @@
 // The timer schould be increased if the last run was under 15 seconds and decresed if the last run was over 20 seconds.
 
 // Load default configuration parameter
-function getComponentConfig(parameter) {
-    configObject = Shelly.getComponentConfig(parameter)
-    if (configObject == null) {
-        return null;
-    }
-
-    return configObject[parameter];
-}
-
 let CONFIG = {
-    power_threshold: getComponentConfig("power_threshold") || 400,                     // Power threshold in watts
-    max_intervall_timer: getComponentConfig("max_intervall_timer") || (12*60*60),      // Maximum timer duration in seconds
-    min_intervall_timer: getComponentConfig("min_intervall_timer") || (10*60),         // Minimum timer duration in seconds
-    initial_intervall_timer: getComponentConfig("initial_intervall_timer") || (42*60), // Initial timer duration in seconds
-    increase_threshold: getComponentConfig("increase_threshold") || 15,                // Last run time threshold for increasing the timer in seconds
-    decrease_threshold: getComponentConfig("decrease_threshold") || 20,                // Last run time threshold for decreasing the timer in seconds
-    timer_increase_step: getComponentConfig("timer_increase_step") || (1*60),          // Amount to increase the timer by
-    timer_decrease_step: getComponentConfig("timer_decrease_step") || (1*60),          // Amount to decrease the timer by
-    max_pump_run_time: getComponentConfig("max_pump_run_time") || (3*60),              // Maximum pump run time in seconds
-    pump_runup_time: getComponentConfig("pump_runup_time") || 7                        // Time to wait for pump to start in seconds
+    power_threshold: 400,               // Power threshold in watts
+    max_intervall_timer: (12*60*60),    // Maximum timer duration in seconds
+    min_intervall_timer: (10*60),       // Minimum timer duration in seconds
+    initial_intervall_timer: (42*60),   // Initial timer duration in seconds
+    increase_threshold: 15,             // Last run time threshold for increasing the timer in seconds
+    decrease_threshold: 20,             // Last run time threshold for decreasing the timer in seconds
+    timer_increase_step: (1*60),        // Amount to increase the timer by
+    timer_decrease_step: (1*60),        // Amount to decrease the timer by
+    max_pump_run_time: (3*60),          // Maximum pump run time in seconds
+    pump_runup_time: 7                  // Time to wait for pump to start in seconds
 };
 
 // Variables to store state
@@ -134,8 +125,6 @@ function publishToMQTT(last_run_duration) {
     MQTT.publish(mqtt_base_path+"/scripts/drainpump", JSON.stringify(mqtt_struct), 0, false);
 }
 
-
-
 // Function to adjust the timer
 function adjustTimer(last_run_duration) {
     print("last_run_duration =", last_run_duration+"s");
@@ -159,7 +148,6 @@ function adjustTimer(last_run_duration) {
     // Publish to MQTT
     publishToMQTT(last_run_duration);
 }
-
 
 // Function to check power consumption
 function checkPower() {
