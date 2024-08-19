@@ -15,16 +15,16 @@ function getComponentConfig(parameter) {
 }
 
 let CONFIG = {
-    power_threshold: getComponentConfig("power_threshold") || 5.0,                     // Power threshold in watts
-    max_intervall_timer: getComponentConfig("max_intervall_timer") || 300,             // Maximum timer duration in seconds
-    min_intervall_timer: getComponentConfig("min_intervall_timer") || 10,              // Minimum timer duration in seconds
-    initial_intervall_timer: getComponentConfig("initial_intervall_timer") || 30,      // Initial timer duration in seconds
-    increase_threshold: getComponentConfig("increase_threshold") || 15,                // Last run time threshold for increasing the timer
-    decrease_threshold: getComponentConfig("decrease_threshold") || 20,                // Last run time threshold for decreasing the timer
-    timer_increase_step: getComponentConfig("timer_increase_step") || 10,              // Amount to increase the timer by
-    timer_decrease_step: getComponentConfig("timer_decrease_step") || 5,               // Amount to decrease the timer by
-    max_pump_run_time: getComponentConfig("max_pump_run_time") || 60,                  // Maximum pump run time in seconds
-    pump_runup_time: getComponentConfig("pump_runup_time") || 5                        // Time to wait for pump to start in seconds
+    power_threshold: getComponentConfig("power_threshold") || 400,                     // Power threshold in watts
+    max_intervall_timer: getComponentConfig("max_intervall_timer") || (12*60*60),      // Maximum timer duration in seconds
+    min_intervall_timer: getComponentConfig("min_intervall_timer") || (10*60),         // Minimum timer duration in seconds
+    initial_intervall_timer: getComponentConfig("initial_intervall_timer") || (42*60), // Initial timer duration in seconds
+    increase_threshold: getComponentConfig("increase_threshold") || 15,                // Last run time threshold for increasing the timer in seconds
+    decrease_threshold: getComponentConfig("decrease_threshold") || 20,                // Last run time threshold for decreasing the timer in seconds
+    timer_increase_step: getComponentConfig("timer_increase_step") || (1*60),          // Amount to increase the timer by
+    timer_decrease_step: getComponentConfig("timer_decrease_step") || (1*60),          // Amount to decrease the timer by
+    max_pump_run_time: getComponentConfig("max_pump_run_time") || (3*60),              // Maximum pump run time in seconds
+    pump_runup_time: getComponentConfig("pump_runup_time") || 7                        // Time to wait for pump to start in seconds
 };
 
 // Variables to store state
@@ -38,6 +38,28 @@ let STATE = {
 // Function to get the run duration
 function getRunDuration() {
     return Math.floor((Date.now() - STATE.tmr_start_time) / 1000);
+}
+
+// Function to convert seconds to human readable time
+function humanReadableTime(seconds) {
+    let days = Math.floor(seconds / 86400);
+    let hours = Math.floor(seconds / 3600);
+    let minutes = Math.floor((seconds % 3600) / 60);
+    let seconds = seconds % 60;
+
+    // build human readable string for last_run_duration
+    let human = "";
+    if (days > 0) {
+        human += days + " days, ";
+    }
+    if (hours > 0) {
+        human += hours + " hours, ";
+    }
+    if (minutes > 0) {
+        human += minutes + " minutes ";
+    }
+    human += seconds + " seconds";
+    return human;
 }
 
 // Function to handle switch turning on
@@ -78,6 +100,42 @@ function stopIntervalTimer() {
     }
 }
 
+function publishToMQTT(last_run_duration) {
+    // check if mqtt is connected
+    if (!MQTT.isConnected()) {
+        return;
+    }
+
+    // convert last_run_duration to days:hours:minutes:seconds
+    let last_run_duration_human = humanReadableTime(last_run_duration);
+
+    // convert current_timer to days:hours:minutes:seconds
+    let current_timer_human = humanReadableTime(STATE.current_timer);
+
+    // build mqtt struct
+    let mqtt_struct = {
+        last_run_duration_seconds: last_run_duration,
+        last_run_duration_human: last_run_duration_human,
+        current_timer_seconds: STATE.current_timer,
+        current_timer_human: current_timer_human
+    };
+
+    let mqtt_config = Shelly.getComponentConfig("mqtt")
+    if (mqtt_config == null) {
+        return;
+    }
+
+    let mqtt_base_path = mqtt_config.topic_prefix
+    if (mqtt_base_path == null) {
+        return;
+    }
+
+    // publish to MQTT
+    MQTT.publish(mqtt_base_path+"/scripts/drainpump", JSON.stringify(mqtt_struct), 0, false);
+}
+
+
+
 // Function to adjust the timer
 function adjustTimer(last_run_duration) {
     print("last_run_duration =", last_run_duration+"s");
@@ -97,6 +155,9 @@ function adjustTimer(last_run_duration) {
         STATE.current_timer = new_timer;
         print("new current_timer =", STATE.current_timer+"s");
     }
+
+    // Publish to MQTT
+    publishToMQTT(last_run_duration);
 }
 
 
